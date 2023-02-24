@@ -1,6 +1,10 @@
 # VbSourceParser
 
 This console application 'parses' VB.NET source code to detect strings and comments.
+It's not really a parser, more of an extractor: it extracts strings and comments
+from VB.NET source files.
+
+Its primary intention is to facilitate searching in strings only.
 
 Usage:
 
@@ -23,4 +27,3 @@ filename:line number: result
 where result is either the string ("" or $"") or a comment (' xxx or REM xxx)
 
 filename and line number are only present if -l is specified.
-
