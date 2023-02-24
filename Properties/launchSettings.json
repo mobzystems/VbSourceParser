@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "VBSourceParser": {
+      "commandName": "Project",
+      "commandLineArgs": "c:\\users\\markus\\source\\repos\\StringTestApp\\Module1.vb"
+    }
+  }
+}
