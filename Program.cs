@@ -1,4 +1,6 @@
-﻿using System.Diagnostics;
+﻿using Microsoft.VisualBasic;
+using System.Diagnostics;
+using System.Reflection;
 
 namespace VbSourceParser
 {
@@ -6,9 +8,9 @@ namespace VbSourceParser
   {
     static int Usage(int code)
     {
-      Console.WriteLine(@"Usage:
+      Console.WriteLine($@"Usage:
 
-  VbSourceParser [-l] [-s] [-c] filename [filename ...]
+  {nameof(VbSourceParser)} [-l] [-s] [-c] filename [filename ...]
 
 Options:
 
@@ -23,7 +25,9 @@ Options:
     {
       if (args.Length == 0)
       {
-        Console.WriteLine("VB Source Parser by MOBZystems.\n");
+        var version = Assembly.GetEntryAssembly()!.GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion;
+
+        Console.WriteLine($"VB Source Parser v{version} by MOBZystems.\n");
         return Usage(0);
       }
 
