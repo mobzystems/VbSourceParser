@@ -21,8 +21,8 @@ namespace VbSourceParser
     {
       // Read the text, converting CRLF to LF, then CR to LF.
       // This leaves line endings at LF for easy parsing
-      // TODO: this might be slow. Maybe better read lines first, then replace REMs with comments, then join?
-      _content = File.ReadAllText(filename).Replace("\r\n", "\n").Replace("\r", "\n");
+      // TODO: this might be slow. Maybe just skip \r when reading?
+      _content = File.ReadAllText(filename, System.Text.Encoding.Latin1).Replace("\r\n", "\n").Replace("\r", "\n");
       _length = _content.Length;
 
       _characterRead = characterRead;
