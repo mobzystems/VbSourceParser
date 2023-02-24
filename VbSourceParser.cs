@@ -8,6 +8,7 @@ namespace VbSourceParser
     private readonly int _length;
     private int _position = 0;
     private int _lineNumber = 1;
+    private bool _atEol = false; // Increment the line number on the next read
 
     private readonly Action<string>? _characterRead;
 
@@ -35,11 +36,17 @@ namespace VbSourceParser
       // Do we haveany input left?
       if (_position < _length)
       {
+        if (_atEol)
+        {
+          _lineNumber++; // Increment the line number on the first character of the new line
+          _atEol = false;
+        }
+
         // Get the input character
         var c = _content[_position++];
-        // If we read an end-of-line, increment the line number
+        // If we read an end-of-line, save the EOL status to increment the line number later
         if (c == '\n')
-          _lineNumber++; // This might be one character too early
+          _atEol = true;
         // Invoke the character-read action (if any)
         if (_characterRead != null)
           _characterRead.Invoke(new string(c, 1));
@@ -86,6 +93,30 @@ namespace VbSourceParser
     }
 
     /// <summary>
+    /// Look behind. Does not change the current position
+    /// </summary>
+    public bool Lookbehind(string match)
+    {
+      if (_position <= match.Length)
+        return false;
+      return Fragment(_position - match.Length - 1, _position - 1) == match;
+    }
+
+    /// <summary>
+    /// Look behind for a set of characters
+    /// </summary>
+    /// <param name="matches"></param>
+    /// <remarks>Can match for beginning-of-file by searching for '\0'</remarks>
+    public bool Lookbehind(params char[] matches)
+    {
+      if (_position < 2)
+        // BOF is a match if we're looking for BOF, otherwise no match
+        return matches.Contains('\0');
+
+      return matches.Contains(_content[_position - 2]);
+    }
+
+    /// <summary>
     /// Get the current read position
     /// </summary>
     public int Position => _position;
@@ -121,13 +152,17 @@ namespace VbSourceParser
       StartOfInterpolatedString,    // $"
       StartOfInterpolatedFormat,    // :
 
-      Comment                       // '
+      Comment,                      // '
+      Rem                           // REM
     }
 
     // The source text
     private readonly VbSourceText _source;
     // The current file name
     private readonly string _filename;
+
+    // Show details?
+    private readonly bool _showDetails;
     // Output strings?
     private readonly bool _outputStrings;
     // Output comments?
@@ -161,6 +196,10 @@ namespace VbSourceParser
             return VbToken.StartOfInterpolatedFormat;
           case '\'':
             return VbToken.Comment;
+          case 'R':  // Might be REM. Look begind to space, newline, BOF and ahead to "EM "
+            if (_source.Lookbehind(' ', '\n', '\0') && _source.Lookahead("EM "))
+              return VbToken.Rem;
+            break;
           case '\0':
             return VbToken.EndOfFile;
 
@@ -307,7 +346,7 @@ namespace VbSourceParser
     /// <returns>The token that ended the expression</returns>
     private VbToken ParseExpression(params VbToken[] endTokens)
     {
-      var startPosition = _source.Position;
+      // var startPosition = _source.Position;
       var startLineNumber = _source.LineNumber;
 
       for (; ; )
@@ -338,6 +377,10 @@ namespace VbSourceParser
             var cmt = ParseComment();
             OutputComment($"'{cmt}");
             break;
+          case VbToken.Rem:
+            var rem = ParseComment();
+            OutputComment($"REM {rem}");
+            break;
 
           default:
             break;
@@ -345,25 +388,35 @@ namespace VbSourceParser
       }
     }
 
+    private void Output(string output)
+    {
+      var msg = output.Replace("\n", "\\n");
+      if (_showDetails)
+        Console.WriteLine($"{_filename}:{_source.LineNumber}: {msg}");
+      else
+        Console.WriteLine(msg);
+    }
+
     private void OutputComment(string c)
     {
       if (_outputComments)
-        Console.WriteLine($"{_filename}:{_source.LineNumber}: {c.Replace("\n", "\\n")}");
+        Output(c);
     }
 
     private void OutputString(string s)
     {
       if (_outputStrings)
-        Console.WriteLine($"{_filename}:{_source.LineNumber}: {s.Replace("\n", "\\n")}");
+        Output(s);
     }
 
     /// <summary>
     /// Initialise the parser with a file name
     /// </summary>
     /// <param name="filename"></param>
-    public VbSourceParser(string filename, bool outputStrings, bool outputComments)
+    public VbSourceParser(string filename, bool showDetails, bool outputStrings, bool outputComments)
     {
       _filename = filename;
+      _showDetails = showDetails;
       _outputStrings = outputStrings;
       _outputComments = outputComments;
 
