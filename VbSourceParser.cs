@@ -22,7 +22,7 @@ namespace VbSourceParser
       // Read the text, converting CRLF to LF, then CR to LF.
       // This leaves line endings at LF for easy parsing
       // TODO: this might be slow. Maybe just skip \r when reading?
-      _content = File.ReadAllText(filename, System.Text.Encoding.Latin1).Replace("\r\n", "\n").Replace("\r", "\n");
+      _content = File.ReadAllText(filename, System.Text.Encoding.Latin1);
       _length = _content.Length;
 
       _characterRead = characterRead;
@@ -63,6 +63,16 @@ namespace VbSourceParser
       }
     }
 
+    private bool Match(int position, string m)
+    {
+      for (var i = 0; i < m.Length; i++)
+      {
+        if (_content[position + i] != m[i])
+          return false;
+      }
+      return true;
+    }
+
     /// <summary>
     /// Determine if the next characters in the source match the specified string.
     /// If so, the characters are skipped and true is returned, else false.
@@ -77,7 +87,7 @@ namespace VbSourceParser
         return false;
 
       // Test the input, looking ahead
-      if (Fragment(_position, _position + match.Length) == match)
+      if (Match(_position, match))
       {
         if (_characterRead != null)
           _characterRead.Invoke(match);
@@ -99,7 +109,8 @@ namespace VbSourceParser
     {
       if (_position <= match.Length)
         return false;
-      return Fragment(_position - match.Length - 1, _position - 1) == match;
+
+      return Match(_position - match.Length - 1, match);
     }
 
     /// <summary>
@@ -327,7 +338,7 @@ namespace VbSourceParser
       for (; ; )
       {
         var c = _source.GetNextChar();
-        if (c == '\r' || c == '\n') // \r should never happen...
+        if (c == '\n')
         {
           // Leave off the end-of-line
           return _source.Fragment(startPosition, _source.Position - 1);
@@ -390,7 +401,11 @@ namespace VbSourceParser
 
     private void Output(string output)
     {
-      var msg = output.Replace("\n", "\\n");
+      var msg = output.
+        Replace("\\", "\\\\"). // Double slashes
+        Replace("\n", "\\n").  // \n
+        Replace("\t", "\\t").  // \t
+        Replace("\r", "\\r");  // \r
       if (_showDetails)
         Console.WriteLine($"{_filename}:{_source.LineNumber}: {msg}");
       else
@@ -400,7 +415,7 @@ namespace VbSourceParser
     private void OutputComment(string c)
     {
       if (_outputComments)
-        Output(c);
+        Output(c.TrimEnd('\r'));
     }
 
     private void OutputString(string s)
