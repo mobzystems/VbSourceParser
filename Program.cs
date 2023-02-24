@@ -8,7 +8,7 @@
       {
         string filename = args[0];
         Console.WriteLine($"Parsing file {filename}...");
-        var vbp = new VbSourceParser(filename);
+        var vbp = new VbSourceParser(filename, false, true);
         vbp.Parse();
         Console.WriteLine($"Done.");
       }

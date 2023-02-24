@@ -128,6 +128,10 @@ namespace VbSourceParser
     private readonly VbSourceText _source;
     // The current file name
     private readonly string _filename;
+    // Output strings?
+    private readonly bool _outputStrings;
+    // Output comments?
+    private readonly bool _outputComments;
 
     /// <summary>
     /// Get the next token from the input when parsing at the root level, e.g.
@@ -194,7 +198,7 @@ namespace VbSourceParser
             break;
 
           case '\0':
-            throw new InvalidOperationException($"Unexpected end of file reading string starting on line {startLineNumber}");
+            throw new InvalidOperationException($"Unexpected end of file reading string starting on {_filename}:{startLineNumber}");
         }
       }
     }
@@ -239,7 +243,7 @@ namespace VbSourceParser
             break;
 
           case '\0':
-            throw new InvalidOperationException($"Unexpected end of file reading interpolated string starting on line {startLineNumber}");
+            throw new InvalidOperationException($"Unexpected end of file reading interpolated string starting on {_filename}:{startLineNumber}");
 
           default:
             break;
@@ -266,25 +270,15 @@ namespace VbSourceParser
               return _source.Fragment(startPosition, _source.Position - 1);
             break;
 
-          //// An opening bracket starts an interpolated expression
-          //case '{':
-          //  // But not if doubled
-          //  if (!_source.Lookahead("{"))
-          //  {
-          //    var endToken = ParseExpression(VbToken.EndOfInterpolatedExpression, VbToken.StartOfInterpolatedFormat);
-          //    if (endToken == VbToken.StartOfInterpolatedFormat)
-          //      ParseInterpolatedFormat();
-          //  }
-          //  break;
-
           case '\0':
-            throw new InvalidOperationException($"Unexpected end of file reading interpolated string format starting on line {startLineNumber}");
+            throw new InvalidOperationException($"Unexpected end of file reading interpolated string format starting on {_filename}:{startLineNumber}");
 
           default:
             break;
         }
       }
     }
+
     /// <summary>
     /// Parse a comment. Comments can contain any characters but end at either end-of-line of end-of-file
     /// </summary>
@@ -294,9 +288,15 @@ namespace VbSourceParser
       for (; ; )
       {
         var c = _source.GetNextChar();
-        if (c == '\0' || c == '\r' || c == '\n') // \r should never happen...
+        if (c == '\r' || c == '\n') // \r should never happen...
         {
+          // Leave off the end-of-line
           return _source.Fragment(startPosition, _source.Position - 1);
+        }
+        else if (c == '\0')
+        {
+          // Include the last character
+          return _source.Fragment(startPosition, _source.Position);
         }
       }
     }
@@ -307,6 +307,9 @@ namespace VbSourceParser
     /// <returns>The token that ended the expression</returns>
     private VbToken ParseExpression(params VbToken[] endTokens)
     {
+      var startPosition = _source.Position;
+      var startLineNumber = _source.LineNumber;
+
       for (; ; )
       {
         var token = NextToken();
@@ -319,20 +322,21 @@ namespace VbSourceParser
             return ParseExpression(VbToken.EndOfExpression);
 
           case VbToken.EndOfFile:
-            throw new InvalidOperationException($"Unexpected EOF looking for {endTokens}");
+            throw new InvalidOperationException($"Unexpected EOF parsing expression starting on {_filename}:{startLineNumber}");
 
           case VbToken.StartOfString:
             var s = ParseString();
-            Console.WriteLine($"{_filename}:{_source.LineNumber}: \"{s.Replace("\n", "\\n")}\"");
+            OutputString($"\"{s}\"");
             break;
 
           case VbToken.StartOfInterpolatedString:
             var hs = ParseInterpolatedString();
-            Console.WriteLine($"{_filename}:{_source.LineNumber}: $\"{hs.Replace("\n", "\\n")}\"");
+            OutputString($"$\"{hs}\"");
             break;
 
           case VbToken.Comment:
-            ParseComment();
+            var cmt = ParseComment();
+            OutputComment($"'{cmt}");
             break;
 
           default:
@@ -341,13 +345,27 @@ namespace VbSourceParser
       }
     }
 
+    private void OutputComment(string c)
+    {
+      if (_outputComments)
+        Console.WriteLine($"{_filename}:{_source.LineNumber}: {c.Replace("\n", "\\n")}");
+    }
+
+    private void OutputString(string s)
+    {
+      if (_outputStrings)
+        Console.WriteLine($"{_filename}:{_source.LineNumber}: {s.Replace("\n", "\\n")}");
+    }
+
     /// <summary>
     /// Initialise the parser with a file name
     /// </summary>
     /// <param name="filename"></param>
-    public VbSourceParser(string filename)
+    public VbSourceParser(string filename, bool outputStrings, bool outputComments)
     {
       _filename = filename;
+      _outputStrings = outputStrings;
+      _outputComments = outputComments;
 
       // Set up our source text. Use Debug.Write for character output
       _source = new VbSourceText(filename, (s) => Debug.Write(s));
@@ -362,7 +380,7 @@ namespace VbSourceParser
 
       // Sanity check: we do actually have EOF now
       if (_source.GetNextChar() != '\0')
-        throw new InvalidOperationException("File was not completely parsed");
+        throw new InvalidOperationException($"File '{_filename}' was not completely parsed");
     }
   }
 }
