@@ -1,4 +1,4 @@
-﻿using Microsoft.VisualBasic;
+﻿using System.Text;
 using System.Diagnostics;
 using System.Reflection;
 
@@ -18,7 +18,9 @@ Options:
 
   -l: show file name and line number
   -s: show strings
-  -c: show comments");
+  -c: show comments
+  -u: assume UTF8 encoding if no BOM present (otherwise: ANSI/Latin1)
+");
 
       return code;
     }
@@ -40,6 +42,7 @@ Options:
       bool optShowDetails = false;
       bool optShowStrings = false;
       bool optShowComments = false;
+      bool optAssumeUtf8 = false;
 
       foreach (var arg in args)
       {
@@ -51,6 +54,7 @@ Options:
             case "l": optShowDetails = true; break;
             case "s": optShowStrings = true; break;
             case "c": optShowComments = true; break;
+            case "u": optAssumeUtf8 = true; break;
             default:
               return Usage($"Invalid option '{arg}'.", 1);
           }
@@ -85,7 +89,7 @@ Options:
         else
         {
           Debug.WriteLine($"Parsing file {filename}...");
-          var vbp = new VbSourceParser(filename, optShowDetails, optShowStrings, optShowComments);
+          var vbp = new VbSourceParser(filename, optAssumeUtf8 ? Encoding.UTF8 : Encoding.Latin1, optShowDetails, optShowStrings, optShowComments);
           vbp.Parse();
           Debug.WriteLine($"Done.");
         }

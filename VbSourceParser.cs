@@ -17,12 +17,12 @@ namespace VbSourceParser
     /// </summary>
     /// <param name="filename">The file name of a VB.NET source file</param>
     /// <param name="characterRead">The action to call on every character read or skipped (for debugging)</param>
-    public VbSourceText(string filename, Action<string>? characterRead)
+    public VbSourceText(string filename, System.Text.Encoding encoding, Action<string>? characterRead)
     {
       // Read the text, converting CRLF to LF, then CR to LF.
       // This leaves line endings at LF for easy parsing
       // TODO: this might be slow. Maybe just skip \r when reading?
-      _content = File.ReadAllText(filename, System.Text.Encoding.Latin1);
+      _content = File.ReadAllText(filename, encoding);
       _length = _content.Length;
 
       _characterRead = characterRead;
@@ -428,7 +428,7 @@ namespace VbSourceParser
     /// Initialise the parser with a file name
     /// </summary>
     /// <param name="filename"></param>
-    public VbSourceParser(string filename, bool showDetails, bool outputStrings, bool outputComments)
+    public VbSourceParser(string filename, System.Text.Encoding encoding, bool showDetails, bool outputStrings, bool outputComments)
     {
       _filename = filename;
       _showDetails = showDetails;
@@ -436,7 +436,7 @@ namespace VbSourceParser
       _outputComments = outputComments;
 
       // Set up our source text. Use Debug.Write for character output
-      _source = new VbSourceText(filename, (s) => Debug.Write(s));
+      _source = new VbSourceText(filename, encoding, (s) => Debug.Write(s));
     }
 
     public void Parse()
