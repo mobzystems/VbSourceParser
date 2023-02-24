@@ -20,4 +20,3 @@ followed by at least one file name.
 
 - Implement options
 - Detect REMs
-- Handle interpolated strings with format specifiers, e.g. $"{Math.Sqrt(2):'the result is: '#.00}"

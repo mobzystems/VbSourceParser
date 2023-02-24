@@ -119,6 +119,7 @@ namespace VbSourceParser
 
       StartOfString,                // "
       StartOfInterpolatedString,    // $"
+      StartOfInterpolatedFormat,    // :
 
       Comment                       // '
     }
@@ -152,6 +153,8 @@ namespace VbSourceParser
             if (_source.Lookahead("\""))
               return VbToken.StartOfInterpolatedString;
             break;
+          case ':':
+            return VbToken.StartOfInterpolatedFormat;
           case '\'':
             return VbToken.Comment;
           case '\0':
@@ -228,7 +231,11 @@ namespace VbSourceParser
           case '{':
             // But not if doubled
             if (!_source.Lookahead("{"))
-              ParseExpression(VbToken.EndOfInterpolatedExpression);
+            {
+              var endToken = ParseExpression(VbToken.EndOfInterpolatedExpression, VbToken.StartOfInterpolatedFormat);
+              if (endToken == VbToken.StartOfInterpolatedFormat)
+                ParseInterpolatedFormat();
+            }
             break;
 
           case '\0':
@@ -240,6 +247,44 @@ namespace VbSourceParser
       }
     }
 
+    private string ParseInterpolatedFormat()
+    {
+      // We just read the opening dollar-and-quote. Sample the input position:
+      var startPosition = _source.Position;
+      var startLineNumber = _source.LineNumber;
+
+      // Keep reading:
+      for (; ; )
+      {
+        var c = _source.GetNextChar();
+        switch (c)
+        {
+          // A } ends the format
+          case '}':
+            // But not if followed by another one
+            if (!_source.Lookahead("}"))
+              return _source.Fragment(startPosition, _source.Position - 1);
+            break;
+
+          //// An opening bracket starts an interpolated expression
+          //case '{':
+          //  // But not if doubled
+          //  if (!_source.Lookahead("{"))
+          //  {
+          //    var endToken = ParseExpression(VbToken.EndOfInterpolatedExpression, VbToken.StartOfInterpolatedFormat);
+          //    if (endToken == VbToken.StartOfInterpolatedFormat)
+          //      ParseInterpolatedFormat();
+          //  }
+          //  break;
+
+          case '\0':
+            throw new InvalidOperationException($"Unexpected end of file reading interpolated string format starting on line {startLineNumber}");
+
+          default:
+            break;
+        }
+      }
+    }
     /// <summary>
     /// Parse a comment. Comments can contain any characters but end at either end-of-line of end-of-file
     /// </summary>
@@ -260,13 +305,13 @@ namespace VbSourceParser
     /// Parse an expression until the specified endToken is found
     /// </summary>
     /// <returns>The token that ended the expression</returns>
-    private VbToken ParseExpression(VbToken endToken)
+    private VbToken ParseExpression(params VbToken[] endTokens)
     {
       for (; ; )
       {
         var token = NextToken();
-        if (token == endToken)
-          return endToken;
+        if (endTokens.Contains(token))
+          return token;
 
         switch (token)
         {
@@ -274,7 +319,7 @@ namespace VbSourceParser
             return ParseExpression(VbToken.EndOfExpression);
 
           case VbToken.EndOfFile:
-            throw new InvalidOperationException($"Unexpected EOF looking for {endToken}");
+            throw new InvalidOperationException($"Unexpected EOF looking for {endTokens}");
 
           case VbToken.StartOfString:
             var s = ParseString();
